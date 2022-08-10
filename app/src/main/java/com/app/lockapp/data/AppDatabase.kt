@@ -6,5 +6,5 @@ import com.app.lockapp.data.LockTime
 
 @Database(entities = [LockTime::class], version = 1)
 abstract class AppDatabase : RoomDatabase() {
-    abstract fun alarmPatternDao(): LockTime
+    abstract fun lockTimeDao(): LockTimeDao
 }

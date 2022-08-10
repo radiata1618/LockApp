@@ -10,9 +10,11 @@ import kotlinx.parcelize.Parcelize
 data class LockTime (
     @PrimaryKey val dayId: Int,
     val dayName: String,
-    val fromTime:Long,
+    val fromTimeHour:Int,
+    val fromTimeMinute:Int,
     val fromBeforeDay:Boolean,
-    val toTime:Long,
+    val toTimeHour:Int,
+    val toTimeMinute:Int,
     val enableLock:Boolean
 ): Parcelable
 

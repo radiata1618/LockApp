@@ -1,9 +1,12 @@
 package com.app.lockapp.data
 
+import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.room.*
+import java.util.*
+
 @Dao
-interface AlarmPatternDao {
+interface LockTimeDao {
     @Insert
     fun insert(lockTime: LockTime): Long
 
@@ -27,5 +30,151 @@ interface AlarmPatternDao {
 
     @Query("select * from lockTime where dayId = :id")
     fun getLockTimeLiveData(id: Int): LiveData<LockTime>
+
+    fun getNextFromTime() :Calendar?{
+        val cal=Calendar.getInstance()
+
+        //昨日の曜日をまずはチェック
+        var dayOfWeek=cal.get(Calendar.DAY_OF_WEEK)-1
+        if(dayOfWeek==0){
+            dayOfWeek=7
+        }
+
+        Log.d("■■■■■■■■■■■■WeekId",dayOfWeek.toString())
+        var lockTimeData =getLockTime(dayOfWeek)
+
+        if(lockTimeData.enableLock && lockTimeData.fromTimeHour<12){
+            val calendarTmp =getCalendarTodayByHourMinute(lockTimeData.fromTimeHour,lockTimeData.fromTimeMinute)
+            if(Calendar.getInstance()<getCalendarTodayByHourMinute(lockTimeData.fromTimeHour,lockTimeData.fromTimeMinute)){
+                return calendarTmp
+            }
+        }
+
+        //先1週間を順にチェック
+        for(i in 1..7){
+            dayOfWeek += 1
+            if(dayOfWeek>7){
+                dayOfWeek-=7
+            }
+            Log.d("■■■■■■■■■■■■WeekId",dayOfWeek.toString())
+            lockTimeData =getLockTime(dayOfWeek)
+            if(lockTimeData.enableLock){
+                val calendarTmp = getCalendarTodayByHourMinute(lockTimeData.fromTimeHour,lockTimeData.fromTimeMinute)
+                calendarTmp.add(Calendar.DATE,i-1)
+                //翌日かどうかで場合分け
+                if(lockTimeData.fromTimeHour<12){
+                    calendarTmp.add(Calendar.DATE,1)
+                }
+                return calendarTmp
+            }
+        }
+        return null
+    }
+
+    fun getCalendarTodayByHourMinute(hour:Int,minute:Int):Calendar{
+
+        val cal = Calendar.getInstance()
+        cal.set(Calendar.HOUR_OF_DAY,hour)
+        cal.set(Calendar.MINUTE,minute)
+        return cal
+    }
+
+    fun insertAllDefaultData() {
+        insertDefaultDataUnit(1, "Sunday")
+        insertDefaultDataUnit(2, "Monday")
+        insertDefaultDataUnit(3, "Tuesday")
+        insertDefaultDataUnit(4, "Wednesday")
+        insertDefaultDataUnit(5, "Thursday")
+        insertDefaultDataUnit(6, "Friday")
+        insertDefaultDataUnit(7, "Saturday")
+    }
+
+    fun insertDefaultDataUnit(dayId: Int, dayName: String) {
+        insert(
+            LockTime(
+                dayId,
+                dayName,
+                23,
+                0,
+                false,
+                6,
+                0,
+                false
+            )
+        )
+    }
+
+    fun updateEnable(lockTime: LockTime) {
+        Log.d("■■■■■■■■■■■■■■","updateEnable")
+        update(
+            LockTime(
+                lockTime.dayId,
+                lockTime.dayName,
+                lockTime.fromTimeHour,
+                lockTime.fromTimeMinute,
+                lockTime.fromBeforeDay,
+                lockTime.toTimeHour,
+                lockTime.toTimeMinute,
+                !lockTime.enableLock,
+            )
+        )
+
+    }
+
+    fun updateFromTime(dayId:Int,fromTimeHour:Int,fromTimeMinute:Int) {
+
+        var lockTime=getLockTime(dayId)
+
+        update(
+            LockTime(
+                lockTime.dayId,
+                lockTime.dayName,
+                fromTimeHour,
+                fromTimeMinute,
+                calcFromBeforeDay(fromTimeHour,fromTimeMinute,lockTime.toTimeHour,lockTime.toTimeMinute),
+                lockTime.toTimeHour,
+                lockTime.toTimeMinute,
+                lockTime.enableLock,
+            )
+        )
+    }
+
+    fun updateToTime(dayId:Int,toTimeHour:Int,toTimeMinute:Int) {
+
+        var lockTime=getLockTime(dayId)
+
+        update(
+            LockTime(
+                lockTime.dayId,
+                lockTime.dayName,
+                lockTime.fromTimeHour,
+                lockTime.fromTimeMinute,
+                calcFromBeforeDay(lockTime.fromTimeHour,lockTime.fromTimeMinute,toTimeHour,toTimeMinute),
+                toTimeHour,
+                toTimeMinute,
+                lockTime.enableLock,
+            )
+        )
+    }
+
+    fun calcFromBeforeDay(fromTimeHour:Int,fromTimeMinute:Int,toTimeHour:Int,toTimeMinute:Int):Boolean {
+
+        return if(fromTimeHour<toTimeHour){
+            true;
+        }else if(fromTimeHour==toTimeHour){
+
+            if(fromTimeMinute<toTimeMinute){
+                true;
+            }else if(fromTimeMinute==toTimeMinute){
+                false;
+
+            }else{
+                false;
+            }
+        }else{
+            false;
+        }
+
+    }
 
 }
